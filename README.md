@@ -1,5 +1,5 @@
 # Project RISCII
-*Semi-casual project to design a dev kit from scratch*
+*"Semi-casual project to design a dev kit from scratch"*
 
 ## Purpose
 
