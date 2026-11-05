@@ -4,7 +4,8 @@
 
 import sys
 
-from MyOpts import Opt, CliResult, parseCliArgs
+from MyLog  import LogLvl, MyLog
+from MyOpts import Opt, parseCliArgs
 
 ################################################################################
 
@@ -23,7 +24,7 @@ def __parseCli():
     # CLI Options.
     options = [
         (Opt.LONER,  OPT_HELP, tuple([])),
-        (Opt.OPTION, OPT_LOG,  tuple(["quiet", "error", "warning", "info", "debug"])),
+        (Opt.OPTION, OPT_LOG,  tuple([e.value for e in LogLvl])),
         (Opt.OPTION, OPT_OUT,  tuple([]))
     ]
 
@@ -34,10 +35,10 @@ def __parseCli():
     for r in results:
         # Errors.
         if r.type == Opt.UNKNOWN:
-            print(f"Unknown flag '{r.arg}'")
+            MyLog.log(LogLvl.ERROR, f"Unknown flag '{r.arg}'")
             sys.exit(EXIT_FAIL)
         elif r.type == Opt.MISSING:
-            print(f"Missing argument for '{r.arg}'")
+            MyLog.log(LogLvl.ERROR, f"Missing argument for '{r.arg}'")
             sys.exit(EXIT_FAIL)
         elif r.type == Opt.NOT_ANS:
             validAns = []
@@ -45,17 +46,22 @@ def __parseCli():
                 if r.arg == flag: 
                     validAns = vals
                     break
-            print(f"Invalid argument '{r.value}'")
-            print(f"Arguments = {validAns}")
+            MyLog.log(LogLvl.ERROR, f"Invalid argument '{r.value}'")
+            MyLog.log(LogLvl.ERROR, f"Arguments = {validAns}")
             sys.exit(EXIT_FAIL)
 
         # else.
-        print(r)
+        if r.arg == OPT_LOG: MyLog.setLvl(LogLvl(r.value))
 
 ################################################################################
 # Core execution of the dasm program.
 def __main():
     __parseCli()
+    MyLog.log(LogLvl.QUIET, "can print")
+    MyLog.log(LogLvl.ERROR, "can print")
+    MyLog.log(LogLvl.WARNING, "can print")
+    MyLog.log(LogLvl.INFO, "can print")
+    MyLog.log(LogLvl.DEBUG, "can print")
     sys.exit(EXIT_GOOD)
 
 ################################################################################
