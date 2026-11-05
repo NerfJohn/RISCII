@@ -5,10 +5,16 @@
 from enum import Enum
 from typing import List
 
+from MyLog  import LogLvl, MyLog
+
 ################################################################################
 
 # Flag parameters.
 FLAG_PREFIX = "-"
+
+# Print parameters.
+PRINT_MAX = 80 # ideal max characters per line
+DESC_MIN  = 20 # min characters per line in descriptions
 
 ################################################################################
 # Enum to define different types of CLI options.
@@ -40,8 +46,67 @@ class CliResult():
         return(f"(type = {self.type}, arg = {self.arg} value = {self.value})")
 
 ################################################################################
+# Summary of CLI options (Option type, flag, description, option choices- empty for any).
+CliOptions = List[tuple[Opt, str, str, List[str]]]
+
+################################################################################
+# Prints CLI options as a help menu.
+def printHelpMenu(desc: str, usage: str, options: CliOptions):
+    # Constants.
+    INDENT = 2
+
+    # Prep options.
+    optionStrings = []
+    for type, flag, blurb, choices in options:
+        # Format of flag.
+        format = (" " * INDENT) + FLAG_PREFIX + flag + " "
+
+        # Format of arg.
+        arg = "<arg> " if type == Opt.OPTION else ""
+
+        # Description of flag.
+        flagDesc = blurb
+        if Opt.OPTION and (len(choices) > 0):
+            flagDesc += f" (choices = {choices})"
+
+        # Save.
+        optionStrings.append((format, arg, flagDesc))
+
+    # Analyze options.
+    maxFormatLen = max([len(f) for f, a, b in optionStrings])
+    maxArgLen    = max([len(a) for f, a, b in optionStrings])
+    blurbLen     = max(DESC_MIN, PRINT_MAX - maxFormatLen)
+
+    # Print menu (as error for visibility).
+    MyLog.log(LogLvl.ERROR, desc)
+    MyLog.log(LogLvl.ERROR, f"Usage: {usage}")
+    MyLog.log(LogLvl.ERROR, "Options:")
+    for format, arg, blurb in optionStrings:
+        blurbStrs = [blurb[i:i+blurbLen] for i in range(0, len(blurb), blurbLen)]
+        MyLog.log(LogLvl.ERROR, format.ljust(maxFormatLen) + arg.ljust(maxArgLen) + blurbStrs[0])
+        for i in range(1, len(blurbStrs)):
+            MyLog.log(LogLvl.ERROR, (" " * (maxFormatLen + maxArgLen)) + blurbStrs[i])
+
+################################################################################
+# Print error for bad CLI result.
+def printResultError(result: CliResult, options: CliOptions):
+    # Print per error.
+    if result.type == Opt.UNKNOWN:
+        MyLog.log(LogLvl.ERROR, f"Unknown flag '{result.arg}'")
+    elif result.type == Opt.MISSING:
+        MyLog.log(LogLvl.ERROR, f"Missing argument for '{result.arg}'")
+    elif result.type == Opt.NOT_ANS:
+        validAns = []
+        for type, flag, desc, vals in options:
+            if result.arg == flag: 
+                validAns = vals
+                break
+        MyLog.log(LogLvl.ERROR, f"Invalid argument '{result.value}'")
+        MyLog.log(LogLvl.ERROR, f"Arguments = {validAns}")
+
+################################################################################
 # Parses CLI args + options into readable array (assumes no script name).
-def parseCliArgs(argv: List[str], options: List[tuple[Opt, str, List[str]]]) -> List[CliResult]:
+def parseCliArgs(argv: List[str], options: CliOptions) -> List[CliResult]:
     # Result.
     res = []
 
@@ -62,7 +127,7 @@ def parseCliArgs(argv: List[str], options: List[tuple[Opt, str, List[str]]]) -> 
         # Flag- determine which one.
         flagFound = False
         if isFlag:
-            for type, flag, choices in options:
+            for type, flag, desc, choices in options:
                 # Loner? save.
                 if rawFlag == flag and Opt.LONER == type:
                     res.append(CliResult(Opt.LONER, rawFlag, ""))
