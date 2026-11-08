@@ -3,7 +3,7 @@
 
 ## Purpose
 
-To disassemble RISCII images into assembly for 1) testing compiler implementations and 2) easier analysis of low-level code.
+To disassemble RISCII images into "assembly" for 1) testing compiler implementations and 2) easier analysis of low-level code.
 
 ## Overview
 
@@ -24,8 +24,23 @@ To disassemble RISCII images into assembly for 1) testing compiler implementatio
 
 |Reference Doc/Path|Reason                                           |
 |------------------|-------------------------------------------------|
-|PR2000            |basis for translating image into assembly        |
+|PR2000            |basis for translating image                      |
 
 ---
 
-## Hardware Architecture
+## TODO List
+
+- add "integer >> instruction" support
+    - warn about unused bits being set
+- add formatters (format instruction, format integer to int16/uint16/hex16)
+    - can add spacing needed for lining up multiple units
+    - can add "0x" prefix if asked
+- add output functionality
+    - warn about overwritting a file
+    - ensure file is only output on success- delete if error mid through
+- add info summary
+- add option to treat warnings as errors
+- add option to include addresses in output
+- add option to include raw instruction in output
+- add option to control type of int used
+- document usage
