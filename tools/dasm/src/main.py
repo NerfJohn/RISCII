@@ -4,6 +4,7 @@
 
 import sys
 
+from ImageParser import RawImage, parseAsImage
 from MyLog  import LogLvl, MyLog
 from MyOpts import Opt, printHelpMenu, printResultError, parseCliArgs
 
@@ -22,8 +23,9 @@ OPT_OUT  = "o"
 # Larger pieces of data for the program.
 class Model():
     # Values.
-    inFile:  str # input filepath/name
-    outFile: str # output filepath/name
+    inFile:  str      # input filepath/name
+    outFile: str      # output filepath/name
+    image:   RawImage # input image data
 
     # Funcs.
     def __init__(self):
@@ -68,12 +70,11 @@ def __parseCli(mdl: Model):
 def __main():
     mdl = Model()
     __parseCli(mdl)
-    MyLog.log(LogLvl.QUIET, "can print")
-    MyLog.log(LogLvl.ERROR, "can print")
-    MyLog.log(LogLvl.WARNING, "can print")
-    MyLog.log(LogLvl.INFO, "can print")
-    MyLog.log(LogLvl.DEBUG, "can print")
-    MyLog.log(LogLvl.ERROR, f"in file = '{mdl.inFile}', out file = '{mdl.outFile}'")
+    isGood, mdl.image = parseAsImage(mdl.inFile)
+    if not isGood:
+        sys.exit(EXIT_FAIL)
+    print(mdl.image.text)
+    print(mdl.image.data)
     sys.exit(EXIT_GOOD)
 
 ################################################################################
