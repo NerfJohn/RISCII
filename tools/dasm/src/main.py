@@ -5,6 +5,7 @@
 import sys
 
 from ImageParser import RawImage, parseAsImage
+from InstrParser import parseAsInstr
 from MyLog  import LogLvl, MyLog
 from MyOpts import Opt, printHelpMenu, printResultError, parseCliArgs
 
@@ -73,8 +74,9 @@ def __main():
     isGood, mdl.image = parseAsImage(mdl.inFile)
     if not isGood:
         sys.exit(EXIT_FAIL)
-    print(mdl.image.text)
-    print(mdl.image.data)
+    for i in mdl.image.text:
+        f = parseAsInstr(i)
+        print(f.opcode, f.flags, f.regs, f.imm)
     sys.exit(EXIT_GOOD)
 
 ################################################################################

@@ -30,8 +30,6 @@ To disassemble RISCII images into "assembly" for 1) testing compiler implementat
 
 ## TODO List
 
-- add "integer >> instruction" support
-    - warn about unused bits being set
 - add formatters (format instruction, format integer to int16/uint16/hex16)
     - can add spacing needed for lining up multiple units
     - can add "0x" prefix if asked
