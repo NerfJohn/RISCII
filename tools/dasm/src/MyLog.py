@@ -16,8 +16,10 @@ class LogLvl(Enum):
 ################################################################################
 # Static log with verbosity controls.
 class MyLog():
-    # Static level.
-    level: LogLvl = LogLvl.WARNING
+    # Static level + counts.
+    level:  LogLvl = LogLvl.WARNING
+    wrnCnt: int    = 0
+    errCnt: int    = 0
 
     # Static funcs.
     def setLvl(lvl: LogLvl) -> None:
@@ -35,7 +37,11 @@ class MyLog():
         if (lvl == LogLvl.QUIET):         return
 
         # Print.
-        if   (lvl == LogLvl.ERROR):   print(f"[ERR] {msg}")
-        elif (lvl == LogLvl.WARNING): print(f"[WRN] {msg}")
+        if   (lvl == LogLvl.ERROR):
+            print(f"[ERR] {msg}")
+            MyLog.errCnt += 1
+        elif (lvl == LogLvl.WARNING):
+            print(f"[WRN] {msg}")
+            MyLog.wrnCnt += 1
         elif (lvl == LogLvl.INFO):    print(f"[INF] {msg}")
         elif (lvl == LogLvl.DEBUG):   print(f"[DBG] {msg}")

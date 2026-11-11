@@ -3,10 +3,11 @@
 ################################################################################
 
 import sys
+from typing import List
 
 from AsmFormatter import NumType, immString, instrString
 from ImageParser import RawImage, parseAsImage
-from InstrParser import parseAsInstr
+from InstrParser import InstrFields, parseAsInstr
 from MyLog  import LogLvl, MyLog
 from MyOpts import Opt, printHelpMenu, printResultError, parseCliArgs
 
@@ -21,22 +22,27 @@ OPT_HELP = "h"
 OPT_LOG  = "ll"
 OPT_OUT  = "o"
 OPT_TYPE = "t"
+OPT_WERR = "werr"
 
 ################################################################################
 # Larger pieces of data for the program.
 class Model():
     # Values.
-    inFile:  str      # input filepath/name
-    outFile: str      # output filepath/name
-    image:   RawImage # input image data
-    immType: NumType  # typing to use for immediates
+    inFile:  str               # input filepath/name
+    outFile: str               # output filepath/name
+    image:   RawImage          # input image data
+    instrs:  List[InstrFields] # parsed instructions
+    immType: NumType           # typing to use for immediates
+    useWerr: bool              # treat warnings as errors
 
     # Funcs.
     def __init__(self):
         self.inFile  = ""
         self.outFile = ""
         self.image   = None
+        self.instrs  = []
         self.immType = NumType.HEX16
+        self.useWerr = False
 
 ################################################################################
 # Handle CLI parsing.
@@ -46,7 +52,8 @@ def __parseCli(mdl: Model):
         (Opt.LONER,  OPT_HELP, "print help menu and exit",  tuple([])),
         (Opt.OPTION, OPT_LOG,  "set log verbosity",         tuple([e.value for e in LogLvl])),
         (Opt.OPTION, OPT_OUT,  "set output file path/name", tuple([])),
-        (Opt.OPTION, OPT_TYPE, "set output type of immediates", tuple([e.value for e in NumType]))
+        (Opt.OPTION, OPT_TYPE, "set output type of immediates", tuple([e.value for e in NumType])),
+        (Opt.LONER,  OPT_WERR, "treat warnings as errors", tuple([]))
     ]
 
     # Parse CLI.
@@ -68,6 +75,8 @@ def __parseCli(mdl: Model):
             mdl.outFile = r.value
         elif r.arg == OPT_TYPE:
             mdl.immType = NumType(r.value)
+        elif r.arg == OPT_WERR:
+            mdl.useWerr = True
 
     # Check requirements.
     if len(mdl.inFile) == 0:
@@ -76,10 +85,10 @@ def __parseCli(mdl: Model):
 
 ################################################################################
 # Handle parsing in the image.
-def __parseImage(mdl: Model) -> bool:
+def __parseImage(mdl: Model):
     # Parse in file.
     isGood, mdl.image = parseAsImage(mdl.inFile)
-    if not isGood: sys.exit(EXIT_FAIL)
+    if not isGood: return
 
     # Parse instructions.
     MyLog.log(LogLvl.INFO, "Parsing instructions")
@@ -87,7 +96,7 @@ def __parseImage(mdl: Model) -> bool:
 
 ################################################################################
 # Handle formatting/output of assembly.
-def __outputAssembly(mdl: Model) -> bool:
+def __outputAssembly(mdl: Model):
     MyLog.log(LogLvl.INFO, "= TEXT =")
     for i in mdl.instrs:
         MyLog.log(LogLvl.INFO, instrString(i, mdl.immType, True))
@@ -100,13 +109,15 @@ def __main():
     # Init model.
     mdl = Model()
 
-    # Execute program.
-    __parseCli(mdl)
-    __parseImage(mdl)
-    __outputAssembly(mdl)
+    # Execute program- stop for errors.
+    for step in [__parseCli, __parseImage, __outputAssembly]:
+        step(mdl)
+        if (mdl.useWerr and MyLog.wrnCnt) or MyLog.errCnt: break
 
-    # All good.
-    sys.exit(EXIT_GOOD)
+    # Report results.
+    res = "failure" if (MyLog.errCnt or (MyLog.wrnCnt and mdl.useWerr)) else "success"
+    MyLog.log(LogLvl.INFO, f"{res}- {MyLog.wrnCnt} warning(s), {MyLog.errCnt} error(s)")
+    sys.exit(EXIT_FAIL if res == "failure" else EXIT_GOOD)
 
 ################################################################################
 # (start of program).
