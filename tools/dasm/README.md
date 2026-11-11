@@ -30,9 +30,6 @@ To disassemble RISCII images into "assembly" for 1) testing compiler implementat
 
 ## TODO List
 
-- add formatters (format instruction, format integer to int16/uint16/hex16)
-    - can add spacing needed for lining up multiple units
-    - can add "0x" prefix if asked
 - add output functionality
     - warn about overwritting a file
     - ensure file is only output on success- delete if error mid through
@@ -40,5 +37,4 @@ To disassemble RISCII images into "assembly" for 1) testing compiler implementat
 - add option to treat warnings as errors
 - add option to include addresses in output
 - add option to include raw instruction in output
-- add option to control type of int used
 - document usage

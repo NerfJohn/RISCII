@@ -22,7 +22,8 @@ class InstrFields():
     opcode: str       # instruction type            - should always be populated
     flags:  str       # instruction specific flags  - set to None if unused
     regs:   List[int] # 3 possible register operands- each set to None if unused
-    imm:    int       # immediate value             - set to None if unused
+    imm:    int       # immediate value (as uint16) - set to None if unused
+    immLen: int       # intended bits in immediate  - set to None if unused
 
     # Funcs.
     def __init__(self, opcode: str):
@@ -31,6 +32,7 @@ class InstrFields():
         self.regs   = []
         for i in range(self.NUM_REGS): self.regs.append(None)
         self.imm    = None
+        self.immLen = None
 
 ################################################################################
 # Opcodes of the ISA.
@@ -140,8 +142,9 @@ def parseAsInstr(instr: int) -> InstrFields:
     if opcode in [__Op.AND, __Op.ORR, __Op.XOR, __Op.ADD, __Op.SUB]:
         # Data reg-imm5 vs Data reg-reg formats.
         if instr & 0x0020:
-            res.regs = __asRegs(instr, [9,6, None])
-            res.imm  = __asImmInt(instr, 5, 0)
+            res.regs   = __asRegs(instr, [9,6, None])
+            res.imm    = __asImmInt(instr, 5, 0)
+            res.immLen = 5
             # All bits used as is
         else:
             res.regs = __asRegs(instr, [9, 6, 0])
@@ -149,8 +152,9 @@ def parseAsInstr(instr: int) -> InstrFields:
     elif opcode == __Op.SHL:
         # Data reg-imm4 vs Data reg-reg formats.
         if instr & 0x0020:
-            res.regs = __asRegs(instr, [9, 6, None])
-            res.imm  = __asImmInt(instr, 4, 0)
+            res.regs   = __asRegs(instr, [9, 6, None])
+            res.imm    = __asImmInt(instr, 4, 0)
+            res.immLen = 4
             __warnUnuseds(instr, 0x0010)
         else:
             res.regs = __asRegs(instr, [9, 6, 0])
@@ -158,34 +162,40 @@ def parseAsInstr(instr: int) -> InstrFields:
     elif opcode == __Op.SHR:
         # Data reg-imm4 w/ flag vs Data reg-reg w/ flag formats.
         if instr & 0x0020:
-            res.regs = __asRegs(instr, [9, 6, None])
-            res.imm  = __asImmInt(instr, 4, 0)
+            res.regs   = __asRegs(instr, [9, 6, None])
+            res.imm    = __asImmInt(instr, 4, 0)
+            res.immLen = 4
             # All bits used as is
         else:
             res.regs = __asRegs(instr, [9, 6, 0])
             __warnUnuseds(instr, 0x0028)
     elif opcode == __Op.LBI:
-        res.regs = __asRegs(instr, [9, None, None])
-        res.imm  = __asImmInt(instr, 8, 0)
+        res.regs   = __asRegs(instr, [9, None, None])
+        res.imm    = __asImmInt(instr, 8, 0)
+        res.immLen = 8
         # All bits used as is
     elif opcode in [__Op.LDR, __Op.STR, __Op.SWP]:
-        res.regs = __asRegs(instr, [9, 6, None])
-        res.imm  = __asImmInt(instr, 6, 0)
+        res.regs   = __asRegs(instr, [9, 6, None])
+        res.imm    = __asImmInt(instr, 6, 0)
+        res.immLen = 6
         # All bits used as is
     elif opcode == __Op.BRC:
-        res.imm  = __asImmInt(instr, 8, 0)
+        res.imm    = __asImmInt(instr, 8, 0)
+        res.immLen = 8
         # All bits used as is
     elif opcode == __Op.JLR:
-        res.regs = __asRegs(instr, [9, 6, None])
-        res.imm  = __asImmInt(instr, 5, 0)
+        res.regs   = __asRegs(instr, [9, 6, None])
+        res.imm    = __asImmInt(instr, 5, 0)
+        res.immLen = 5
         __warnUnuseds(instr, 0x0020)      
     elif opcode == __Op.JPR:
         # RTI vs JPR formats.
         if instr & 0x0020:
             __warnUnuseds(instr, 0x0FDF)
         else:
-            res.regs = __asRegs(instr, [None, 6, None])
-            res.imm  = __asImmInt(instr, 5, 0)
+            res.regs   = __asRegs(instr, [None, 6, None])
+            res.imm    = __asImmInt(instr, 5, 0)
+            res.immLen = 5
             __warnUnuseds(instr, 0x0020)
     elif opcode in [__Op.NOP, __Op.HLT]:
         __warnUnuseds(instr, 0x0FFF)
