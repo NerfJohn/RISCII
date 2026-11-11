@@ -75,19 +75,37 @@ def __parseCli(mdl: Model):
         sys.exit(EXIT_FAIL)
 
 ################################################################################
-# Core execution of the dasm program.
-def __main():
-    mdl = Model()
-    __parseCli(mdl)
+# Handle parsing in the image.
+def __parseImage(mdl: Model) -> bool:
+    # Parse in file.
     isGood, mdl.image = parseAsImage(mdl.inFile)
-    if not isGood:
-        sys.exit(EXIT_FAIL)
+    if not isGood: sys.exit(EXIT_FAIL)
+
+    # Parse instructions.
+    MyLog.log(LogLvl.INFO, "Parsing instructions")
+    for i in mdl.image.text: mdl.instrs.append(parseAsInstr(i))
+
+################################################################################
+# Handle formatting/output of assembly.
+def __outputAssembly(mdl: Model) -> bool:
     MyLog.log(LogLvl.INFO, "= TEXT =")
-    for i in mdl.image.text:
-        instr =  parseAsInstr(i)
-        MyLog.log(LogLvl.INFO, instrString(instr, mdl.immType, True))
+    for i in mdl.instrs:
+        MyLog.log(LogLvl.INFO, instrString(i, mdl.immType, True))
     MyLog.log(LogLvl.INFO, "= DATA =")
     for d in mdl.image.data: MyLog.log(LogLvl.INFO, immString(d, 16, mdl.immType, True))
+
+################################################################################
+# Core execution of the dasm program.
+def __main():
+    # Init model.
+    mdl = Model()
+
+    # Execute program.
+    __parseCli(mdl)
+    __parseImage(mdl)
+    __outputAssembly(mdl)
+
+    # All good.
     sys.exit(EXIT_GOOD)
 
 ################################################################################
