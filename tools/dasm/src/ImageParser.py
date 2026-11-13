@@ -25,12 +25,17 @@ __IS_SIGNED  = False                                    # unsigned
 __FMT_END    = '<' if __ENDIANNESS == 'little' else '>'
 __FMT_SIGN   = 'h' if __IS_SIGNED else 'H'              # word length
 
+# Shared Params.
+WORD_SIZE_BYTES = __IMG_WORD_SIZE
+WORD_SIZE_BITS  = WORD_SIZE_BYTES * 8
+
 ################################################################################
 # Class to hold raw parsing of the image.
 class RawImage():
     # Values.
-    text: List[int] # 16-bit values making up the text section
-    data: List[int] # 16-bit values making up the data section
+    origSize: int       # orginal size of the image (in bytes)
+    text:     List[int] # 16-bit values making up the text section
+    data:     List[int] # 16-bit values making up the data section
 
     # Funcs.
     def __init__(self):
@@ -61,6 +66,7 @@ def parseAsImage(fname: str) -> tuple[bool, RawImage]:
     elif (imgSize % __IMG_WORD_SIZE) != 0:
         MyLog.log(LogLvl.ERROR, f"File ({imgSize} bytes) is not an image word multiple (word = {__IMG_WORD_SIZE} bytes))")
         return False, res
+    res.origSize = imgSize
 
     # Open/Parse file.
     MyLog.log(LogLvl.DEBUG, f"Opening '{fname}' file/data")

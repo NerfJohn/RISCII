@@ -30,9 +30,6 @@ To disassemble RISCII images into "assembly" for 1) testing compiler implementat
 
 ## TODO List
 
-- add output functionality
-    - warn about overwritting a file
-    - ensure file is only output on success- delete if error mid through
 - add option to include addresses in output
 - add option to include raw instruction in output
 - document usage

@@ -2,11 +2,12 @@
 # dasm: main.py
 ################################################################################
 
+import os
 import sys
 from typing import List
 
 from AsmFormatter import NumType, immString, instrString
-from ImageParser import RawImage, parseAsImage
+from ImageParser import RawImage, parseAsImage, WORD_SIZE_BITS
 from InstrParser import InstrFields, parseAsInstr
 from MyLog  import LogLvl, MyLog
 from MyOpts import Opt, printHelpMenu, printResultError, parseCliArgs
@@ -23,6 +24,12 @@ OPT_LOG  = "ll"
 OPT_OUT  = "o"
 OPT_TYPE = "t"
 OPT_WERR = "werr"
+
+# File Paramters.
+FILE_DELIM = '.'
+FILE_OTYPE = '.dasm'
+FILE_DIV   = '=' * 80
+FILE_LF    = '\n'
 
 ################################################################################
 # Larger pieces of data for the program.
@@ -82,6 +89,10 @@ def __parseCli(mdl: Model):
     if len(mdl.inFile) == 0:
         MyLog.log(LogLvl.ERROR, "No input file given")
         sys.exit(EXIT_FAIL)
+    if len(mdl.outFile) == 0:
+        idx = mdl.inFile.rfind(FILE_DELIM)
+        if idx < 0: mdl.outFile = mdl.inFile + FILE_OTYPE
+        else:       mdl.outFile = mdl.inFile[:idx] + FILE_OTYPE
 
 ################################################################################
 # Handle parsing in the image.
@@ -97,11 +108,40 @@ def __parseImage(mdl: Model):
 ################################################################################
 # Handle formatting/output of assembly.
 def __outputAssembly(mdl: Model):
-    MyLog.log(LogLvl.INFO, "= TEXT =")
-    for i in mdl.instrs:
-        MyLog.log(LogLvl.INFO, instrString(i, mdl.immType, True))
-    MyLog.log(LogLvl.INFO, "= DATA =")
-    for d in mdl.image.data: MyLog.log(LogLvl.INFO, immString(d, 16, mdl.immType, True))
+    # Check output file.
+    MyLog.log(LogLvl.INFO, f"Writing '{mdl.outFile}'")
+    if os.path.exists(mdl.outFile) is True:
+        MyLog.log(LogLvl.WARNING, f"Out file '{mdl.outFile}' already exists")
+        if mdl.useWerr: return
+
+    # Begin writing to file.
+    MyLog.log(LogLvl.DEBUG, f"Opening '{mdl.outFile}' file")
+    with open(mdl.outFile, "w") as f:
+        # Header.
+        MyLog.log(LogLvl.DEBUG, f"Writing file header")
+        hdr = [FILE_DIV, f"dasm: {mdl.inFile} ({mdl.image.origSize} bytes) -> {mdl.outFile}", FILE_DIV]
+        for l in hdr: f.write(l + FILE_LF)
+
+        # Text section.
+        MyLog.log(LogLvl.DEBUG, f"Writing text section")
+        txtHdr = [f"TEXT SECTION ({len(mdl.image.text)} words)", FILE_DIV]
+        for l in txtHdr: f.write(l + FILE_LF)
+        for i in mdl.instrs:
+            f.write(instrString(i, mdl.immType, True) + FILE_LF)
+
+        # Text section.
+        MyLog.log(LogLvl.DEBUG, f"Writing data section")
+        txtHdr = [FILE_DIV, f"DATA SECTION ({len(mdl.image.data)} words)", FILE_DIV]
+        for l in txtHdr: f.write(l + FILE_LF)
+        for d in mdl.image.data:
+            f.write(immString(d, WORD_SIZE_BITS, mdl.immType, True) + FILE_LF)
+        f.write(FILE_DIV + FILE_LF)
+    MyLog.log(LogLvl.DEBUG, f"Closed '{mdl.outFile}' file")
+
+    # Delete file on mishaps.
+    if (MyLog.errCnt or (MyLog.wrnCnt and mdl.useWerr)) and os.path.exists(mdl.outFile):
+        MyLog.log(LogLvl.DEBUG, f"Errors- remove out file '{mdl.outFile}'")
+        os.remove(mdl.outFile)
 
 ################################################################################
 # Core execution of the dasm program.
@@ -112,7 +152,7 @@ def __main():
     # Execute program- stop for errors.
     for step in [__parseCli, __parseImage, __outputAssembly]:
         step(mdl)
-        if (mdl.useWerr and MyLog.wrnCnt) or MyLog.errCnt: break
+        if (MyLog.errCnt or (MyLog.wrnCnt and mdl.useWerr)): break
 
     # Report results.
     res = "failure" if (MyLog.errCnt or (MyLog.wrnCnt and mdl.useWerr)) else "success"
