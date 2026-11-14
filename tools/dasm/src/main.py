@@ -6,8 +6,9 @@ import os
 import sys
 from typing import List
 
-from AsmFormatter import NumType, immString, instrString
-from ImageParser import RawImage, parseAsImage, WORD_SIZE_BITS
+from AsmFormatter import NumType
+from DasmPrinter import printDasm
+from ImageParser import RawImage, parseAsImage
 from InstrParser import InstrFields, parseAsInstr
 from MyLog  import LogLvl, MyLog
 from MyOpts import Opt, printHelpMenu, printResultError, parseCliArgs
@@ -28,8 +29,6 @@ OPT_WERR = "werr"
 # File Paramters.
 FILE_DELIM = '.'
 FILE_OTYPE = '.dasm'
-FILE_DIV   = '=' * 80
-FILE_LF    = '\n'
 
 ################################################################################
 # Larger pieces of data for the program.
@@ -115,28 +114,7 @@ def __outputAssembly(mdl: Model):
         if mdl.useWerr: return
 
     # Begin writing to file.
-    MyLog.log(LogLvl.DEBUG, f"Opening '{mdl.outFile}' file")
-    with open(mdl.outFile, "w") as f:
-        # Header.
-        MyLog.log(LogLvl.DEBUG, f"Writing file header")
-        hdr = [FILE_DIV, f"dasm: {mdl.inFile} ({mdl.image.origSize} bytes) -> {mdl.outFile}", FILE_DIV]
-        for l in hdr: f.write(l + FILE_LF)
-
-        # Text section.
-        MyLog.log(LogLvl.DEBUG, f"Writing text section")
-        txtHdr = [f"TEXT SECTION ({len(mdl.image.text)} words)", FILE_DIV]
-        for l in txtHdr: f.write(l + FILE_LF)
-        for i in mdl.instrs:
-            f.write(instrString(i, mdl.immType, True) + FILE_LF)
-
-        # Text section.
-        MyLog.log(LogLvl.DEBUG, f"Writing data section")
-        txtHdr = [FILE_DIV, f"DATA SECTION ({len(mdl.image.data)} words)", FILE_DIV]
-        for l in txtHdr: f.write(l + FILE_LF)
-        for d in mdl.image.data:
-            f.write(immString(d, WORD_SIZE_BITS, mdl.immType, True) + FILE_LF)
-        f.write(FILE_DIV + FILE_LF)
-    MyLog.log(LogLvl.DEBUG, f"Closed '{mdl.outFile}' file")
+    printDasm(mdl.outFile, mdl.inFile, mdl.immType, mdl.image, mdl.instrs)
 
     # Delete file on mishaps.
     if (MyLog.errCnt or (MyLog.wrnCnt and mdl.useWerr)) and os.path.exists(mdl.outFile):
