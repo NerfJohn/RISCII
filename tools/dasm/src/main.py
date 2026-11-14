@@ -2,9 +2,9 @@
 # dasm: main.py
 ################################################################################
 
+from typing import List
 import os
 import sys
-from typing import List
 
 from AsmFormatter import NumType
 from DasmPrinter import printDasm
@@ -25,6 +25,8 @@ OPT_LOG  = "ll"
 OPT_OUT  = "o"
 OPT_TYPE = "t"
 OPT_WERR = "werr"
+OPT_ADDR = "addr"
+OPT_RAW  = "raw"
 
 # File Paramters.
 FILE_DELIM = '.'
@@ -40,6 +42,8 @@ class Model():
     instrs:  List[InstrFields] # parsed instructions
     immType: NumType           # typing to use for immediates
     useWerr: bool              # treat warnings as errors
+    doAddr:  bool              # print addresses of items
+    doRaw:   bool              # print raw instructions
 
     # Funcs.
     def __init__(self):
@@ -49,6 +53,8 @@ class Model():
         self.instrs  = []
         self.immType = NumType.HEX16
         self.useWerr = False
+        self.doAddr  = False
+        self.doRaw   = False
 
 ################################################################################
 # Handle CLI parsing.
@@ -59,7 +65,9 @@ def __parseCli(mdl: Model):
         (Opt.OPTION, OPT_LOG,  "set log verbosity",         tuple([e.value for e in LogLvl])),
         (Opt.OPTION, OPT_OUT,  "set output file path/name", tuple([])),
         (Opt.OPTION, OPT_TYPE, "set output type of immediates", tuple([e.value for e in NumType])),
-        (Opt.LONER,  OPT_WERR, "treat warnings as errors", tuple([]))
+        (Opt.LONER,  OPT_WERR, "treat warnings as errors", tuple([])),
+        (Opt.LONER,  OPT_ADDR, "print addresses of items", tuple([])),
+        (Opt.LONER,  OPT_RAW,  "print raw instructions", tuple([]))
     ]
 
     # Parse CLI.
@@ -83,6 +91,10 @@ def __parseCli(mdl: Model):
             mdl.immType = NumType(r.value)
         elif r.arg == OPT_WERR:
             mdl.useWerr = True
+        elif r.arg == OPT_ADDR:
+            mdl.doAddr = True
+        elif r.arg == OPT_RAW:
+            mdl.doRaw = True
 
     # Check requirements.
     if len(mdl.inFile) == 0:
@@ -114,7 +126,8 @@ def __outputAssembly(mdl: Model):
         if mdl.useWerr: return
 
     # Begin writing to file.
-    printDasm(mdl.outFile, mdl.inFile, mdl.immType, mdl.image, mdl.instrs)
+    printDasm(mdl.outFile, mdl.inFile, mdl.image, mdl.instrs,
+              mdl.immType, mdl.doAddr, mdl.doRaw)
 
     # Delete file on mishaps.
     if (MyLog.errCnt or (MyLog.wrnCnt and mdl.useWerr)) and os.path.exists(mdl.outFile):

@@ -30,6 +30,4 @@ To disassemble RISCII images into "assembly" for 1) testing compiler implementat
 
 ## TODO List
 
-- add option to include addresses in output
-- add option to include raw instruction in output
 - document usage
