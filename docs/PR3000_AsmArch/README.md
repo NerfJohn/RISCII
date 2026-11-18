@@ -10,6 +10,7 @@ To layout expectations for how low level software is read, written, and compiled
 ## Overview
 
 - [Variable Arguments](#variable-arguments)
+- [Statements](#statements)
 - [TODO](#todo)
 
 ## Common Terms
@@ -103,12 +104,71 @@ Within tuples, immediates are always 16-bit "any sign" values.
 {foo bar                       ; INVALID- tuple not closed
 ```
 
+## Statements
+
+### Instruction
+
+Instruction represent ISA instructions. Instructions are placed in text memory in the order they appear (in a file- arbitrary placement between files). Instructions' grammar are heavily context driven (e.g. immediate sign/sizes based on specific instruction)- see table and examples below.
+
+|Code|Flags |Register|Register|Register|Immediate|Description              |
+|----|------|--------|--------|--------|---------|-------------------------|
+|AND |      |DST     |SR1     |SR2     |         |Bitwise AND (VAR)        |
+|AND |      |DST     |SR1     |        |5bImm    |Bitwise AND (IMM)        |
+|ORR |      |DST     |SR1     |SR2     |         |Bitwise ORR (VAR)        |
+|ORR |      |DST     |SR1     |        |5bImm    |Bitwise ORR (IMM)        |
+|XOR |      |DST     |SR1     |SR2     |         |Bitwise XOR (VAR)        |
+|XOR |      |DST     |SR1     |        |5bImm    |Bitwise XOR (IMM)        |
+|SHL |      |DST     |SR1     |SR2     |         |Shift Logic Left (VAR)   |
+|SHL |      |DST     |SR1     |        |4bIm     |Shift Logic Left (IMM)   |
+|SHR |a     |DST     |SR1     |SR2     |         |Shift Right (VAR)        |
+|SHR |a     |DST     |SR1     |        |4bIm     |Shift Right (IMM)        |
+|ADD |      |DST     |SR1     |SR2     |         |Arithmetic Add (VAR)     |
+|ADD |      |DST     |SR1     |        |5bImm    |Arithmetic Add (IMM)     |
+|SUB |      |DST     |SR1     |SR2     |         |Arithmetic Subtract (VAR)|
+|SUB |      |DST     |SR1     |        |5bImm    |Arithmetic Subtract (IMM)|
+|LBI |s     |DST     |        |        |8bImmVal |Load Byte Immediate      |
+|LDR |      |DST     |SR1     |        |6bOfst   |Load Memory Word         |
+|STR |      |SRC     |SR1     |        |6bOfst   |Store Memory Word        |
+|SWP |      |DST     |SR1     |        |6bOfst   |Swap Register Memory     |
+|BRC |nzpc\*|        |        |        |8bImmVal |Branch Conditional       |
+|JLR |      |DST     |SR1     |        |5bImm    |Jump/Link Register       |
+|JPR |      |SR1     |        |        |5bImm    |Jump Register            |
+|RTI |      |        |        |        |         |Return From Interrupt    |
+|NOP |      |        |        |        |         |No Operation             |
+|HLT |      |        |        |        |         |Halt/Pause               |
+
+```
+ADD     $1 $4 $5      ; Add registers R4 and R5 and put the result in R1
+BRC %nz          1    ; Skip next instruction if prior result (as int16) is negative or zero
+LBI     $0       0xFF ; Set R0 to -1
+LBI %s  $0       4    ; Set R0 to (R0 << 8) | 0x4
+HLT                   ; Enter PSE state- halting instruction execution
+```
+
+*\* A no flag `BRC` instruction is treated like an unconditional jump*
+
+### Built-in Functions
+
+Built-in functions act like instructions (grammar, text memory placement, etc), though are not directly supported by the ISA. They provide additional functionality to the assembly language.
+
+The `_la` function allows for setting a register to either a word-length immediate or label (resolved during assembly/linking). It generates two LBI instructions to set the register.
+
+```
+_la    $3 0x8040    ; one load address function...
+
+LBI    $3 0x80      ; ...equivalent two instructions
+LBI %s $3 0x40
+
+_la    $4 foo       ; if foo resolves to "0x02A1"...
+
+LBI    $4 0x02      ; ...equivalent two instructions
+LBI %s $4 0xA1
+```
+
 ## TODO
 
 - statements
-    - instruction
     - built-in function
-        - _la (load label or immediate)
         - _br (BRC with label or immediate, doesn't adjust if not in BRC range)
     - data init
     - bss reserve
