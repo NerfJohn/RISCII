@@ -11,6 +11,7 @@ To layout expectations for how low level software is read, written, and compiled
 
 - [Variable Arguments](#variable-arguments)
 - [Statements](#statements)
+- [Linkage Rules](#linkage-rules)
 - [TODO](#todo)
 
 ## Common Terms
@@ -91,11 +92,11 @@ _low_score ; valid label- uses letters/underscore
 0Nope      ; INVALID- label cannot begin with a number
 ```
 
-### Tuple
+### Tuples
 
-Tuples are aggregate combos of 0+ immediates, strings, labels, or tuples. Tuples are enclosed with curly brackets- using whitespace to delimit items. Items are first resolved for value/sizing before the tuple is resolved. Items are place in order of appearance, with earlier items appearing at lower addresses.
+Tuples are aggregate combos of 0+ immediates, strings, labels, or tuples. Tuples are enclosed with curly brackets- using whitespace to delimit items. Items are first resolved for value/sizing before the tuple is resolved (appending `NULL` as needed to be word aligned). Items are place in order of appearance, with earlier items appearing at lower addresses.
 
-Within tuples, immediates are always 16-bit "any sign" values.
+Within tuples, immediates are always word-length "any sign" values.
 
 ```
 {0x34 'beef' MyLabel}          ; tuple of 3 items- 16-bit value "0x0034" placed in first word (12 bytes total)
@@ -106,7 +107,7 @@ Within tuples, immediates are always 16-bit "any sign" values.
 
 ## Statements
 
-### Instruction
+### Instructions
 
 Instruction represent ISA instructions. Instructions are placed in text memory in the order they appear (in a file- arbitrary placement between files). Instructions' grammar are heavily context driven (e.g. immediate sign/sizes based on specific instruction)- see table and examples below.
 
@@ -151,7 +152,7 @@ HLT                   ; Enter PSE state- halting instruction execution
 
 Built-in functions act like instructions (grammar, text memory placement, etc), though are not directly supported by the ISA. They provide additional functionality to the assembly language.
 
-The `_la` function allows for setting a register to either a word-length immediate or label (resolved during assembly/linking). It generates two LBI instructions to set the register.
+The `_la` function allows for setting a register to either a word-length "any sign" immediate or label (resolved during assembly/linking). It generates two LBI instructions to set the register.
 
 ```
 _la    $3 0x8040    ; one load address function...
@@ -165,17 +166,88 @@ LBI    $4 0x02      ; ...equivalent two instructions
 LBI %s $4 0xA1
 ```
 
+The `_br` function allows for conditionally jumping to either an unsigned word-length immediate (as an address) or label (resolved during assembly/linking). It generates a 5 instruction "if/else" block- using the register input to temporarily hold the address.
+
+```
+_br %n  $2 0x10AA ; jump to fixed address...
+
+BRC %n     1      ; conditional
+BRC        3      ; skip 'jump block' on failure
+LBI     $2 0x10   ; load fixed address
+LBI %s  $2 0xAA
+JPR     $2 0      ; jump to fixed address
+
+_br %zp $2 func   ; if 'func' equals 0x0450...
+
+BRC %zp    1      ; conditional
+BRC        3      ; skip 'jump block' on failure
+LBI     $2 0x04   ; load label address
+LBI %s  $2 0x50
+JPR     $2 0      ; jump to label
+```
+
+### Data Initializations
+
+Data initializations represent initialized data. Initialized data is placed in data memory (in arbitrary order). An initialization begins with `.data` followed by a word-length "any sign" immediate, string, label, or tuple.
+
+```
+.data -5         ; Adds 0xFFFB to data section
+
+.data 0xFFAA     ; Adds 0xFFAA to data section
+
+.data "42"       ; Adds 0x3432 to data section
+
+.data lbl        ; Adds <resolved label address> to data section
+
+.data {-1 2 3 5} ; Adds 0xFFFF000200030005 to data section
+```
+
+### BSS Reservations
+
+BSS reservations represent uninitialized data. Uninitialized data is not directly placed in data memory, but influences how the binary image is created (e.g. reserved label values). A reservation begins with `.bss` followed by an unsigned word-length immediate. The value indicates the number of bytes to reserve as uninitialized (rounded up as needed for word alignment).
+
+```
+.bss 4   ; Reserves 4 bytes of data memory
+
+.bss 0x5 ; Reserves 6 bytes of data memory
+
+.bss -1  ; INVALID- cannot reserve negative amount of memory
+```
+
+### Label Declarations
+
+Label declarations create a "named" statement for later reference. The label is tied to the next instruction, built-in function, data initialization, or bss reservation that appears in the file (and is required to be tied to a statement). A declaration consists of a label followed by a `:`.
+
+```
+foo:           ; Ties to 'HLT' instruction
+HLT
+
+bar1:          ; Ties to '_la' function
+bar2:          ; Ties to '_la' function
+
+_la $0 5
+
+dataLabel:     ; Ties to '.data' initialization
+.data "string"
+
+.bss 20        ; No labels tied to reservation
+```
+
+### Label Modifier
+
+Label modifiers modify how a label's linkage works (or adds additional context). The modifier is tied to the next label declaration that appears in the file (and is required to be tied to a declaration). Modifiers consist of a keyword prefixed with a `.`. See below for valid modifier keywords- and see linkage rules for further information on their effects.
+
+|Keyword|Prerequisites|Decription                                                          |
+|-------|-------------|--------------------------------------------------------------------|
+|global |---          |allows label to be reference across files                           |
+|weak   |---          |directs in-file references to prefer global declaration if available|
+
+## Linkage Rules
+
+
+
 ## TODO
 
-- statements
-    - built-in function
-        - _br (BRC with label or immediate, doesn't adjust if not in BRC range)
-    - data init
-    - bss reserve
-    - label decl (applies to next instr/func/data/bss)
-    - label mod (edit to apply to next label decl)
-        - global (invert 'scope' rule)
-        - weak (invert 'link' rule)
 - linkage
     - "scope": labels are implicitly local on decl
     - "link": labels prefer local defs over global defs
@@ -188,7 +260,6 @@ LBI %s $4 0xA1
     - comments
 - CHANGES
     - add multi-line comment
-    - consider fleshing out _br as a generic "jump wherever needed on condition or no condition"
     - consider 'section' for opt removal (ie removal by function ref vs any label any ref)
     - consider edits needed to improve debug (eg to get all labels, blocks of code, named scoped vars)
     - consider edits needed to turn into static lib
