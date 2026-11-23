@@ -5,14 +5,14 @@
 
 To layout expectations for how low level software is read, written, and compiled. This document describes a low level "assembly" programming language.
 
-> **Note**: Assembly language standards DO tend to be ISA specific. Regardless of this, this standard will make specific decisions (e.g. max integer length) to keep the "assembly to binary" translation notes in one place.
+> **Note**: Assembly language standards DO tend to be ISA specific. Regardless of this, this standard will make specific decisions (e.g. max integer length, compiler-specific feature support) to keep the "assembly to binary" translation notes in one place.
 
 ## Overview
 
 - [Variable Arguments](#variable-arguments)
 - [Statements](#statements)
 - [Linkage Rules](#linkage-rules)
-- [TODO](#todo)
+- [Miscellaneous](#miscellaneous)
 
 ## Common Terms
 
@@ -21,8 +21,8 @@ To layout expectations for how low level software is read, written, and compiled
 |assembly         |low level language described by this document       |
 |image            |binary file representing a RISCII program           |
 |word (length)    |16 bits wide                                        |
-|text memory      |64 KB address space for instruction storage         |
-|data memory      |64 KB address space for data storage + mapping      |
+|text section     |binary image portion for instructions               |
+|data section     |binary image portion for initialized data           |
 |NULL             |0x00 integer value                                  |
 
 ## Referenced Material
@@ -109,7 +109,7 @@ Within tuples, immediates are always word-length "any sign" values.
 
 ### Instructions
 
-Instruction represent ISA instructions. Instructions are placed in text memory in the order they appear (in a file- arbitrary placement between files). Instructions' grammar are heavily context driven (e.g. immediate sign/sizes based on specific instruction)- see table and examples below.
+Instruction represent ISA instructions. Instructions are placed in the text section in the order they appear (in a file- arbitrary placement between files). Instructions' grammar are heavily context driven (e.g. immediate sign/sizes based on specific instruction)- see table and examples below.
 
 |Code|Flags |Register|Register|Register|Immediate|Description              |
 |----|------|--------|--------|--------|---------|-------------------------|
@@ -150,7 +150,7 @@ HLT                   ; Enter PSE state- halting instruction execution
 
 ### Built-in Functions
 
-Built-in functions act like instructions (grammar, text memory placement, etc), though are not directly supported by the ISA. They provide additional functionality to the assembly language.
+Built-in functions act like instructions (grammar, text section placement, etc), though are not directly supported by the ISA. They provide additional functionality to the assembly language.
 
 The `_la` function allows for setting a register to either a word-length "any sign" immediate or label (resolved during assembly/linking). It generates two LBI instructions to set the register.
 
@@ -188,7 +188,7 @@ JPR     $2 0      ; jump to label
 
 ### Data Initializations
 
-Data initializations represent initialized data. Initialized data is placed in data memory (in arbitrary order). An initialization begins with `.data` followed by a word-length "any sign" immediate, string, label, or tuple.
+Data initializations represent initialized data. Initialized data is placed in the data section (in arbitrary order between initializations). An initialization begins with `.data` followed by a word-length "any sign" immediate, string, label, or tuple.
 
 ```
 .data -5         ; Adds 0xFFFB to data section
@@ -204,7 +204,7 @@ Data initializations represent initialized data. Initialized data is placed in d
 
 ### BSS Reservations
 
-BSS reservations represent uninitialized data. Uninitialized data is not directly placed in data memory, but influences how the binary image is created (e.g. reserved label values). A reservation begins with `.bss` followed by an unsigned word-length immediate. The value indicates the number of bytes to reserve as uninitialized (rounded up as needed for word alignment).
+BSS reservations represent uninitialized data. Uninitialized data is not directly placed in the data section, but influences how the binary image is created (e.g. meta label values). A reservation begins with `.bss` followed by an unsigned word-length immediate. The value indicates the number of bytes to reserve as uninitialized (rounded up as needed for word alignment).
 
 ```
 .bss 4   ; Reserves 4 bytes of data memory
@@ -237,29 +237,114 @@ dataLabel:     ; Ties to '.data' initialization
 
 Label modifiers modify how a label's linkage works (or adds additional context). The modifier is tied to the next label declaration that appears in the file (and is required to be tied to a declaration). Modifiers consist of a keyword prefixed with a `.`. See below for valid modifier keywords- and see linkage rules for further information on their effects.
 
-|Keyword|Prerequisites|Decription                                                          |
-|-------|-------------|--------------------------------------------------------------------|
-|global |---          |allows label to be reference across files                           |
-|weak   |---          |directs in-file references to prefer global declaration if available|
+|Keyword|Prerequisites     |Decription                                                          |
+|-------|------------------|--------------------------------------------------------------------|
+|global |---               |allows label to be reference across files                           |
+|weak   |---               |directs in-file references to prefer global declaration if available|
+|section|text section label|calls out explicit partitions for optimizing/dead code removal      |
+|export |global label      |directs label's global modifier to be preserved in static library   |
 
 ## Linkage Rules
 
+### "Scope" Rule
 
+Labels are local by default- they can only be referenced within the file they were declared. A label modified with `.global` can be referenced across all files (including the file the label was declared in).
 
-## TODO
+```
+> cat a.s
+    .global foo: ; globally declared label
+            bar: ; locally declared label
+    HLT
 
-- linkage
-    - "scope": labels are implicitly local on decl
-    - "link": labels prefer local defs over global defs
-    - "start": "__START" label expected to be global declared and tied to instr/func
-    - "reserve": several labels are globally reserved and can be referenced
-        - __BSS: first addr of bss memory
-        - __FREE: first addr of free memory
-        - __SIZE: total size of the binary in bytes
-- misc
-    - comments
-- CHANGES
-    - add multi-line comment
-    - consider 'section' for opt removal (ie removal by function ref vs any label any ref)
-    - consider edits needed to improve debug (eg to get all labels, blocks of code, named scoped vars)
-    - consider edits needed to turn into static lib
+> cat b.s
+    _la $0 foo   ; references 'foo' in a.s
+    _la $0 bar   ; does NOT reference 'bar' in a.s
+
+```
+
+### "Unique" Rule
+
+Label names must be uniquely named. Labels (with the same name) can be declared locally in two different files, but the cannot be declared twice in the same file. Labels modified with `.global` must be uniquely named when compared to other `.global` labels.
+
+```
+> cat a.s
+            alpha: ; local 'alpha'
+    .global beta:  ; local and global 'beta'
+    .global gamma: ; local and global 'gamma'
+    NOP
+
+> cat b.s
+            alpha: ; VALID- local 'alpha' doesn't conflict with a.s local 'alpha'
+            beta:  ; VALID- local 'beta' doesn't conflict with a.s local 'beta'
+    .global gamma: ; INVALID- global 'gamma' conflicts with a.s global 'gamma'
+            alpha: ; INVALID- multiple local 'alpha'
+    NOP
+```
+
+### "Link" Rule
+
+When resolving label references, local declarations and preferred over gloval declarations. Labels modified with `.weak` direct local references to instead prefer global declarations. References with no matching declaration result in an error.
+
+```
+> cat a.s
+    .global foo: ; local/global 'foo'
+    .global bar: ; local/global 'bar
+    NOP
+
+> cat b.s
+    .weak foo:   ; local 'foo'- inverted preference
+          bar:   ; local 'bar'
+    NOP
+
+    _la $0 foo   ; ties to a.s 'foo'
+    _la $0 bar   ; ties to b.s 'bar'
+    _la $0 cat   ; INVALID- no local/global 'cat'
+```
+
+### "Start" Rule
+
+When assembling/linking, one `.global` label named `__START` is expected to be declared and tied to either an instruction or built-in function. This label is used to define which instruction is placed at the start of the text section location (and thus start of the text memory). Failing to declare/locate this label results in an error.
+
+```
+_la $0 0x45A1    ; Placed arbitrarily with in program- but not at text address 0x0000
+JPR $0           ; Placed just after previous instruction
+
+.global __START: ; (Start of program)
+NOP              ; Placed at text address 0x0000
+HLT              ; Placed at text address 0x0002
+```
+
+### "Meta" Rule
+
+Some labels are reserved for metadata values (auto-generated during assembling/linking). These values are pre-declared and global.
+
+|Label |Description                                          |
+|------|-----------------------------------------------------|
+|__BSS |First address of uninitialized data (if any)         |
+|__FREE|First address of unused/"free" data memory (if any)  |
+|__SIZE|Size of the binary image (including headers) in bytes|
+
+## Miscellaneous
+
+### Comments
+
+Comments can be added for human audiences without affecting the output. Comments begin with `;` and take up the rest of the line.
+
+```
+; This is a comment
+; The presenc/absence of this line does not change the output binary image
+```
+
+### Data Memory Layout
+
+The data section (in the binary image) consists only of initialized data, while data memory (in the program- loaded into hardware) includes uninitialized data and free memory. When assembling/linking, the following layout is assumed. This layout primarily affects how `__BSS` and `__FREE` are generated (and how BSS reservations affect both).
+
+**(Start of Data Memory)**
+
+|Area              |Example        |
+|------------------|---------------|
+|Initialized Data  |.data instances|
+|Uninitialized Data|.bss instances | 
+|Free Memory       |---            |
+
+**(Rest of Data Memory)**
