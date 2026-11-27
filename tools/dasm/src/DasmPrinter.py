@@ -71,7 +71,7 @@ def genHeaderData(addrIdx: int = None, origCol: bool = False) -> str:
 ################################################################################
 # Prints translated contents of the image into a file.
 def printDasm(fname: str, inFile: str, image: RawImage, instrs: List[InstrFields],
-              immType: NumType, doAddr: bool, doRaw: bool):
+              immTypeText: NumType, immTypeData: NumType, doAddr: bool, doRaw: bool):
     # Begin writing to file.
     MyLog.log(LogLvl.DEBUG, f"Opening '{fname}' file")
     with open(fname, "w") as f:
@@ -87,7 +87,7 @@ def printDasm(fname: str, inFile: str, image: RawImage, instrs: List[InstrFields
         for i in range(len(instrs)):
             instr = instrs[i]
             prefix = genHeaderText(i if doAddr else None, image.text[i] if doRaw else None)
-            f.write(prefix + instrString(instr, immType, True) + __FOUT_LF)
+            f.write(prefix + instrString(instr, immTypeText, True) + __FOUT_LF)
 
         # Data section.
         MyLog.log(LogLvl.DEBUG, f"Writing data section")
@@ -99,7 +99,7 @@ def printDasm(fname: str, inFile: str, image: RawImage, instrs: List[InstrFields
                 if j > 0: f.write(__FOUT_ROW_SEP)
                 else:
                     f.write(genHeaderData(i+j if doAddr else None, doRaw))
-                f.write(immString(data, WORD_SIZE_BITS, immType, True))
+                f.write(immString(data, WORD_SIZE_BITS, immTypeData, True))
             f.write(__FOUT_LF)
         f.write(__FOUT_DIV + __FOUT_LF)
     MyLog.log(LogLvl.DEBUG, f"Closed '{fname}' file")

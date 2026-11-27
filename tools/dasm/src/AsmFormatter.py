@@ -9,10 +9,12 @@ from InstrParser import InstrFields
 ################################################################################
 
 # String Params.
-__OP_LEN   = 4
-__FLAG_LEN = 6
-__REG_LEN  = 4
-__IMM_LEN  = 6
+__OP_LEN    = 4
+__FLAG_LEN  = 6
+__REG_LEN   = 4
+__IMM_LEN   = 6
+__ASCII_MIN = 32
+__ASCII_MAX = 126
 
 ################################################################################
 # Enum for defining representations of numbers.
@@ -20,6 +22,7 @@ class NumType(Enum):
     INT16  = "int"
     UINT16 = "uint"
     HEX16  = "hex"
+    ASCII  = "ascii"
 
 ################################################################################
 # Format 16-bit integer (or immediate) into string.
@@ -30,6 +33,12 @@ def immString(imm: int, immLen = 16, immType: NumType = NumType.HEX16, with0x = 
     elif immType == NumType.INT16:
         if 2**(immLen-1) > imm: return str(imm).ljust(__IMM_LEN)
         else:                   return str(-(2**(immLen) - imm)).ljust(__IMM_LEN)
+    elif immType == NumType.ASCII:
+        ret = ''
+        for i in [(imm >> 8) & 0xFF, imm & 0xFF]:
+            if (__ASCII_MIN > i) or (__ASCII_MAX < i): ret += f"x{i:02X}"
+            else:                                      ret += f"'{chr(i)}'"
+        return ret.ljust(__IMM_LEN)
     return str(imm).ljust(__IMM_LEN)
 
 ################################################################################
