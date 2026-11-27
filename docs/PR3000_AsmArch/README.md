@@ -101,7 +101,7 @@ Within tuples, immediates are always word-length "any sign" values.
 ```
 {0x34 'beef' MyLabel}          ; tuple of 3 items- 16-bit value "0x0034" placed in first word (12 bytes total)
 {}                             ; empty tuple (0 bytes total)
-{"nums" {-32768 -1 0 1 65535}} ; nested tuple- "[n][u]" placed in first word (24 bytes total)
+{"nums" {-32768 -1 0 1 65535}} ; nested tuple- "[n][u]" placed in first word (14 bytes total)
 {foo bar                       ; INVALID- tuple not closed
 ```
 
