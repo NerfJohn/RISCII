@@ -41,10 +41,12 @@ $ python src/main.py -h
 [ERR]   -ll   <arg> set log verbosity (choices = ('quiet', 'error', 'warning', 'info', 'debu
 [ERR]               g'))
 [ERR]   -o    <arg> set output file path/name
-[ERR]   -t    <arg> set output type of immediates (choices = ('int', 'uint', 'hex'))
+[ERR]   -t    <arg> set output type of immediates (choices = ('int', 'uint', 'hex', 'ascii')
+[ERR]               )
 [ERR]   -werr       treat warnings as errors
 [ERR]   -addr       print addresses of items
 [ERR]   -raw        print raw instructions
+[ERR]   -chr        print data in ascii
 ```
 
 Optional arguments are used to modify the process and/or output.
@@ -58,3 +60,6 @@ Optional arguments are used to modify the process and/or output.
 |werr  |allows warnings to act like errors- halting execution and returning a failure code|
 |addr  |prints addresses of instructions/data in the output file                          |
 |raw   |prints raw values of instructions in the output file next to instructions         |
+|chr   |prints data section as ascii chars- overrides -t option                           |
+
+The program returns a generic success/failure code. A successful output file or help menu are treated as successes (regardless of warnings without -werr). Anything else is treated as a failure.
