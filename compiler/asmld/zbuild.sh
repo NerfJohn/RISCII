@@ -3,7 +3,8 @@
 #  zbuild.sh - generate inc/version.h, build with CMake, move exe to output/
 #
 #  Usage:
-#    ./zbuild.sh             version taken from the most recent matching git tag
+#    ./zbuild.sh             version from the most recent matching git tag;
+#                            hash/date from the current commit (HEAD)
 #    ./zbuild.sh v1.4.0      manual version (always treated as a dirty build)
 #
 #  Settings (exe name, tag prefix, folders) are in zhead.sh.
@@ -41,10 +42,10 @@ elif ! VER_TAG="$(latest_reachable_tag)"; then
 
 else
     VER_NUMBER="${VER_TAG#"$TAG_PREFIX"}"
-    # Short hash of the tagged commit (7 chars, like GitHub)
-    VER_HASH="$(git rev-list -n 1 --abbrev-commit --abbrev=7 "$VER_TAG")"
-    # Tag date (tagger date for annotated tags, commit date for lightweight)
-    VER_DATE="$(git for-each-ref --format='%(creatordate:short)' "refs/tags/$VER_TAG")"
+    # Hash and date describe what is actually being built: the current commit
+    # (HEAD), which may be newer than the tag. Hash is 7 chars, like GitHub.
+    VER_HASH="$(git rev-parse --short=7 HEAD)"
+    VER_DATE="$(git log -1 --format=%cs HEAD)"
     project_dirty && DIRTY=1
 fi
 
